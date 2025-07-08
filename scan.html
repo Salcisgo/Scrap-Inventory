@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Escáner de Series</title>
+    <script src="https://unpkg.com/html5-qrcode/html5-qrcode.min.js"></script>
+    <style>
+        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; margin: 0; background-color: #f0f2f5; }
+        main { padding: 15px; }
+        #reader { width: 95%; max-width: 500px; margin: 20px auto; border: 2px solid #ccc; border-radius: 8px; }
+        #result { margin-top: 20px; padding: 15px; background-color: #fff; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); word-wrap: break-word; }
+        h1, h4 { text-align: center; color: #1c1e21; }
+        button { display: block; width: 80%; max-width: 300px; margin: 20px auto; padding: 12px; font-size: 16px; font-weight: bold; color: white; background-color: #007bff; border: none; border-radius: 8px; cursor: pointer; }
+        .data-item { border-bottom: 1px solid #eee; padding: 8px 0; }
+        .data-item b { color: #333; }
+    </style>
+</head>
+<body>
+
+    <main>
+        <h1>🔍 Escáner de Series</h1>
+        <div id="reader"></div>
+        <button id="scan-button" onclick="startScanner()">Iniciar Escáner</button>
+        <h4>Resultado de la Búsqueda:</h4>
+        <div id="result"><p>Esperando escaneo...</p></div>
+    </main>
+
+    <script>
+        // -----------------------------------------------------------------------
+        // PEGA AQUÍ LA URL DE TU APLICACIÓN WEB DE APPS SCRIPT
+        const SCRIPT_URL = "https://script.google.com/a/macros/celestica.com/s/AKfycbwgYyGy40xOFe4NBs_5vHVWGmWHFXSDWH95lnFf07_NLXblM-uvbsanGOaxuWpo5KCb/exec";
+        // -----------------------------------------------------------------------
+
+        const resultDiv = document.getElementById('result');
+        const scanButton = document.getElementById('scan-button');
+        let html5QrCode;
+
+        function startScanner() {
+            html5QrCode = new Html5Qrcode("reader");
+            scanButton.style.display = 'none'; // Ocultar botón
+            resultDiv.innerHTML = `<p>Coloca el código QR dentro del recuadro...</p>`;
+
+            html5QrCode.start(
+                { facingMode: "environment" }, // Usar la cámara trasera
+                {
+                    fps: 10,
+                    qrbox: { width: 250, height: 250 } 
+                },
+                onScanSuccess,
+                onScanFailure
+            ).catch(err => {
+                resultDiv.innerHTML = `<p style="color:red;">Error al iniciar la cámara: ${err}</p>`;
+                scanButton.style.display = 'block';
+            });
+        }
+
+        function onScanSuccess(decodedText, decodedResult) {
+            // Detener el escáner una vez que se encuentra un código
+            html5QrCode.stop().then(() => {
+                resultDiv.innerHTML = `<p><b>Código detectado:</b> ${decodedText}<br>Buscando en la base de datos...</p>`;
+                fetchData(decodedText);
+                scanButton.style.display = 'block'; // Mostrar botón para escanear de nuevo
+            }).catch(err => console.error("Error al detener el escáner.", err));
+        }
+
+        function onScanFailure(error) {
+            // Ignorar errores de "QR code not found"
+        }
+
+        function fetchData(serial) {
+            resultDiv.innerHTML = `<p>Buscando <b>${serial}</b>...</p>`;
+            fetch(`${SCRIPT_URL}?serial=${serial}`)
+                .then(response => response.json())
+                .then(res => {
+                    if (res.error) {
+                        resultDiv.innerHTML = `<p style="color:red;">❌ ${res.error}</p>`;
+                    } else {
+                        let html = '';
+                        for (const key in res.data) {
+                            html += `<div class="data-item"><b>${key}:</b> ${res.data[key]}</div>`;
+                        }
+                        resultDiv.innerHTML = html;
+                    }
+                })
+                .catch(error => {
+                    resultDiv.innerHTML = `<p style="color:red;">Error de conexión. Revisa tu internet y la URL del script.</p>`;
+                    console.error('Error:', error);
+                });
+        }
+    </script>
+</body>
+</html>
